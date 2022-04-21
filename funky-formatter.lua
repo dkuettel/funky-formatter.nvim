@@ -1,7 +1,7 @@
 local M = {}
 
 function M.setup()
-    vim.keymap.set("n", "--", M.test)
+    vim.keymap.set("n", "--", M.test, {desc="funky formatting"})
     vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "﯀" })
     print("reloaded --")
 end
