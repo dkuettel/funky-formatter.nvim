@@ -38,7 +38,10 @@ function M.test()
         return
     end
 
+    -- using the diff we could probable place the cursor even more reliably?
+    local view = vim.fn.winsaveview()
     vim.api.nvim_buf_set_lines(0, 0, -1, true, stdout)
+    vim.fn.winrestview(view)
 
     local text_str = table.concat(text, "\n")
     local stdout_str = table.concat(stdout, "\n")
