@@ -39,6 +39,7 @@ function M.test()
     end
 
     -- using the diff we could probable place the cursor even more reliably?
+    -- TODO anyway I think more is needed, all the windows that show this buffer need to be restored
     local view = vim.fn.winsaveview()
     vim.api.nvim_buf_set_lines(0, 0, -1, true, stdout)
     vim.fn.winrestview(view)
@@ -54,7 +55,8 @@ function M.test()
         left_diff_count = left_diff_count + hunk[2]
         right_diff_count = right_diff_count + hunk[4]
         for i = 0, hunk[4] - 1 do
-            vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = hunk[3] + i, priority = 500 })
+            -- TODO indent blank lines plugin uses 10k :)
+            vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = hunk[3] + i, priority = 11000 })
         end
     end
 
@@ -63,7 +65,7 @@ function M.test()
     local buffer = vim.api.nvim_get_current_buf()
     vim.defer_fn(function()
         vim.fn.sign_unplace("FunkyFormatSigns", { buffer = buffer })
-    end, 350)
+    end, 500)
 end
 
 return M
