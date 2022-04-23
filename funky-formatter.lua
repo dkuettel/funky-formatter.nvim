@@ -28,6 +28,9 @@ local function run_command(command, stdin)
 end
 
 function M.test()
+    print(" Getting funky ...")
+    vim.cmd("redraw")
+
     -- local command = { "black", "--quiet", "--target-version=py39", "-" }
     local command = { "some-isort-and-black" }
     local text = vim.api.nvim_buf_get_lines(0, 0, -1, true)
