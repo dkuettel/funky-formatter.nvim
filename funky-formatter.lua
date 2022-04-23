@@ -94,7 +94,7 @@ function M.test()
     if #diff == 0 then
         print(" Code was already funky.")
     else
-        print(" " .. left_diff_count .. " lines turned into " .. right_diff_count .. " lines of funky code.")
+        print(" " .. left_diff_count .. " lines of crazy code turned into " .. right_diff_count .. " lines of funky code.")
     end
 
     local buffer = vim.api.nvim_get_current_buf()
