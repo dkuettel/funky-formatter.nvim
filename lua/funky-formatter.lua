@@ -1,11 +1,5 @@
 local M = {}
 
-function M.setup()
-    vim.keymap.set("n", "--", M.test, { desc = "funky formatting" })
-    vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "﯀" })
-    print("reloaded --")
-end
-
 local function run_command(command, stdin)
     local stdout, stderr
     local opts = {
@@ -27,80 +21,108 @@ local function run_command(command, stdin)
     return exit_code, stdout, stderr
 end
 
-function M.test()
+local function apply_diff_to_buffer(diff, after, buffer)
+    -- TODO assuming hunks are forward in source file? we go backwards so indices dont change
+    -- but even then :/ hunks could cross over maybe? looks like not, we could at least check, and check in the end the same content?
+    for i = #diff, 1, -1 do
+        local before_start, before_size, after_start, after_size = unpack(diff[i])
+        local after_lines = {}
+        for j = after_start, after_start + after_size - 1 do
+            table.insert(after_lines, after[j])
+        end
+        -- TODO is that registered as an edit? how does it interact with undo, and with signs and stuff
+        -- does it batch changes before other things are recomputed?
+        vim.api.nvim_buf_set_lines(buffer, before_start - 1, before_start - 1 + before_size, true, after_lines)
+    end
+    -- TODO alternative is to get all window cursor positions and adapt based on hunk sizes, then easy full lines set
+end
+
+local function place_signs_for_diff(diff, buffer)
+    -- TODO indent blank lines plugin uses 10k :)
+    local priority = 11000
+    for i = 1, #diff do
+        local _, _, after_start, after_size = unpack(diff[i])
+        if after_size == 0 then
+            vim.fn.sign_place(
+                1,
+                "FunkyFormatSigns",
+                "FunkyFormatSign",
+                "%",
+                { lnum = after_start, priority = priority }
+            )
+        else
+            for j = after_start, after_start + after_size - 1 do
+                vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", buffer, { lnum = j, priority = priority })
+            end
+        end
+    end
+end
+
+local function get_diff_statistics(diff)
+    local before = 0
+    local after = 0
+    for i = 1, #diff do
+        before = before + diff[i][2]
+        after = after + diff[i][4]
+    end
+    return before, after
+end
+
+M.config = {
+    formatters = {
+        python = { command = { "some-isort-and-black" } },
+    },
+}
+
+function M.setup()
+    vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "﯀" })
+end
+
+function M.format()
     print(" Getting funky ...")
     vim.cmd("redraw")
 
-    -- local command = { "black", "--quiet", "--target-version=py39", "-" }
-    local command = { "some-isort-and-black" }
-    local text = vim.api.nvim_buf_get_lines(0, 0, -1, true)
-    local exit_code, stdout, stderr = run_command(command, text)
-
-    if exit_code ~= 0 then
-        print(" Formatting was not funky.")
+    local buffer = vim.api.nvim_get_current_buffer()
+    local filetype = vim.api.nvim_buf_get_option(buffer, "filetype")
+    local formatter = M.config.formatters[filetype]
+    if not formatter then
+        print(" No funky formatter for filetype '" .. filetype .. "'.")
         return
     end
 
-    -- using the diff we could probable place the cursor even more reliably?
-    -- TODO anyway I think more is needed, all the windows that show this buffer need to be restored
+    local before = vim.api.nvim_buf_get_lines(0, 0, -1, true)
+    -- TODO can we use :%!command even easier? does it handle jumping cursors? still make diff before and after for funkiness
+    -- seems like that one does lose the cursor position according to people, maybe old, try to be sure
+    local exit_code, after, error = run_command(formatter.command, before)
+
+    if exit_code ~= 0 then
+        print(" Formatting was not funky: '" .. error .. "'")
+        return
+    end
+
+    -- TODO still not sure if this easier code could be made to work
     -- local view = vim.fn.winsaveview()
     -- vim.api.nvim_buf_set_lines(0, 0, -1, true, stdout)
     -- vim.fn.winrestview(view)
 
-    local text_str = table.concat(text, "\n")
-    local stdout_str = table.concat(stdout, "\n")
-    -- array of {left start, left size, right start, right size}
-    local diff = vim.diff(text_str, stdout_str, { result_type = "indices" })
-
-    -- TODO assuming hunks are forward in source file? we go backwards so indices dont change
-    -- but even then :/ hunks could cross over maybe? looks like not, we could at least check, and check in the end the same content?
-    for i = #diff, 1, -1 do
-        local old_start, old_size, new_start, new_size = unpack(diff[i])
-        local new_lines = {}
-        for j = new_start, new_start + new_size - 1 do
-            table.insert(new_lines, stdout[j])
-        end
-        -- TODO is that registered as an edit? how does it interact with undo, and with signs and stuff
-        -- does it batch changes before other things are recomputed?
-        vim.api.nvim_buf_set_lines(0, old_start - 1, old_start - 1 + old_size, true, new_lines)
-        -- if #new_lines == 0 then
-        --     vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = old_start, priority = 11000 })
-        -- else
-        --     for j = old_start, old_start + #new_lines - 1 do
-        --         vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = j, priority = 11000 })
-        --     end
-        -- end
-    end
-    -- TODO alternative is to get all window cursor positions and adapt based on hunk sizes, then easy full lines set
-
-    -- diff doesnt indicate well when lines have only been removed, because then the hunk on the right side is empty
-    -- could show empty hunks still as if it was size 1?
-    local left_diff_count = 0
-    local right_diff_count = 0
-    for i = 1, #diff do
-        local old_start, old_size, new_start, new_size = unpack(diff[i])
-        left_diff_count = left_diff_count + old_size
-        right_diff_count = right_diff_count + new_size
-        -- TODO indent blank lines plugin uses 10k :)
-        if new_size == 0 then
-            vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = new_start, priority = 11000 })
-        else
-            for j = new_start, new_start + new_size - 1 do
-                vim.fn.sign_place(1, "FunkyFormatSigns", "FunkyFormatSign", "%", { lnum = j, priority = 11000 })
-            end
-        end
-    end
+    local before_str = table.concat(before, "\n")
+    local after_str = table.concat(after, "\n")
+    local diff = vim.diff(before_str, after_str, { result_type = "indices" })
 
     if #diff == 0 then
         print(" Code was already funky.")
-    else
-        print(" " .. left_diff_count .. " lines of crazy code turned into " .. right_diff_count .. " lines of funky code.")
+        return
     end
 
-    local buffer = vim.api.nvim_get_current_buf()
+    apply_diff_to_buffer(diff, after, buffer)
+
+    place_signs_for_diff(diff, buffer)
     vim.defer_fn(function()
         vim.fn.sign_unplace("FunkyFormatSigns", { buffer = buffer })
     end, 500)
+
+    local before_lines, after_lines = get_diff_statistics(diff)
+    print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
 end
 
 return M
