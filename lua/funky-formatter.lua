@@ -26,7 +26,7 @@ function M.format(buffer)
     local exit_code, after, error = tools.run_command(formatter.command, before)
 
     if exit_code ~= 0 then
-        print(" Formatting was not funky: '" .. error .. "'")
+        print(" Formatting was not funky: '" .. vim.inspect(error) .. "'")
         return
     end
 
