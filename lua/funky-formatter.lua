@@ -22,57 +22,6 @@ local function run_command(command, stdin)
     return exit_code, stdout, stderr
 end
 
-local function apply_diff_to_buffer(diff, after, buffer)
-    -- the only reason we need to apply the diff instead of just set the new buffer contents
-    -- is because vim dislocates the view and cursors in views on the buffer
-    -- (also other signs might be recomputed, not sure if that is a big problem though)
-    -- vim.diff is a bit weird with it's output especially around size==0
-    -- TODO assuming hunks are forward in source file? we go backwards so indices dont change
-    -- but even then :/ hunks could cross over maybe? looks like not, we could at least check, and check in the end the same content?
-    -- TODO something is wrong here, simple python file applies wrong, is it that the diff is not as I thought?
-    -- test on
-    -- [[
-    -- import time
-    -- time.sleep()
-    -- print()
-    -- ]] or alternatively also same but with print() way down
-    -- oh am I supposed to read that diff forward? is it actually a sequence of mutations?
-    -- no I dont think so, or does vim.diff mess it up when there is an early empty line?
-    -- TODO ok at this point I'm not sure what is the format
-    -- the simple example before seems to insert the space before import if I go backwards
-    -- vim.diff is broken or just inconsistent? when the source has size 0, it seems to insert after that, but before makes more sense if you want continuity of the size argument
-    for i = #diff, 1, -1 do
-        local before_start, before_size, after_start, after_size = unpack(diff[i])
-        local after_lines = {}
-        for j = after_start, after_start + after_size - 1 do
-            table.insert(after_lines, after[j])
-        end
-        -- TODO is that registered as an edit? how does it interact with undo, and with signs and stuff
-        -- does it batch changes before other things are recomputed?
-        if before_size == 0 then
-            -- weird vim.diff behavior with size==0 in before? or is it nvim_buf_set_lines that is strange?
-            -- with size==0 it means insert after, not before, which would make more sense
-            vim.api.nvim_buf_set_lines(buffer, before_start - 1 + 1, before_start - 1 + 1, true, after_lines)
-        else
-            vim.api.nvim_buf_set_lines(buffer, before_start - 1, before_start - 1 + before_size, true, after_lines)
-        end
-    end
-    -- TODO alternative is to get all window cursor positions and adapt based on hunk sizes, then easy full lines set
-    -- TODO of course the other sanity check is to see that buffer is not ==after ...
-    -- sanity check, speed impact?
-    local actual = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
-    if not vim.deep_equal(actual, after) then
-        -- TODO that message should be visible to the user, add it to the normal message so it's never missed?
-        print("OMFG not the same, forcing it")
-        vim.api.nvim_buf_set_lines(buffer, 0, -1, true, after)
-    end
-    -- TODO ah well it's still happening, either vim.diff is broken, or I dont interpret it right
-    -- TODO maybe lets try to go for that lsp diff edit thing instead?
-    -- https://github.com/neovim/neovim/issues/14645#issuecomment-893816076 should work
-    -- also see if view can be adjusted? together with diff I can probably make a smart positioning?
-    -- that should all be way easier then, plus if the diff was per column and not just line, could show even more flashy
-end
-
 local function flash_signs_for_diff(diff, buffer)
     -- TODO indent blank lines plugin uses 10k :)
     local priority = 11000
@@ -109,6 +58,36 @@ local function get_diff_statistics(diff)
     return before, after
 end
 
+local function adjust_cursor(cursor, buffer, diff)
+    local row, col = unpack(cursor)
+    for _, hunk in ipairs(diff) do
+        local before_start, before_size, _, after_size = unpack(hunk)
+        if before_start + before_size - 1 < row then
+            row = row - before_size + after_size
+        end
+    end
+    local line_count = vim.api.nvim_buf_line_count(buffer)
+    row = math.min(math.max(1, row), line_count)
+    local col_count = #vim.api.nvim_buf_get_lines(buffer, row - 1, row, true)
+    col = math.min(math.max(0, col), col_count - 1)
+    return { row, col }
+end
+
+local function remember_cursors(buffer)
+    local windows = vim.fn.win_findbuf(buffer)
+    local locations = {}
+    for _, window in ipairs(windows) do
+        locations[window] = vim.api.nvim_win_get_cursor(window)
+    end
+    local function restore(diff)
+        for window, cursor in pairs(locations) do
+            cursor = adjust_cursor(cursor, buffer, diff)
+            vim.api.nvim_win_set_cursor(window, cursor)
+        end
+    end
+    return restore
+end
+
 M.config = { formatters = {} }
 
 function M.setup(opts)
@@ -117,11 +96,13 @@ function M.setup(opts)
     vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "﯀" })
 end
 
-function M.format()
+function M.format(buffer)
     print(" Getting funky ...")
     vim.cmd("redraw")
 
-    local buffer = vim.api.nvim_get_current_buf()
+    if buffer == nil or buffer == 0 then
+        buffer = vim.api.nvim_get_current_buf()
+    end
     local filetype = vim.api.nvim_buf_get_option(buffer, "filetype")
     local formatter = vim.tbl_get(M, "config", "formatters", filetype)
     if not formatter then
@@ -148,14 +129,11 @@ function M.format()
         return
     end
 
-    -- print("before:")
-    -- print(vim.inspect(before_str))
-    -- print("after:")
-    -- print(vim.inspect(after_str))
-    -- print(vim.inspect(diff))
-    -- print(vim.inspect(vim.diff(before_str, after_str)))
-
-    apply_diff_to_buffer(diff, after, buffer)
+    local restore = remember_cursors(buffer)
+    vim.api.nvim_buf_set_lines(buffer, 0, -1, true, after)
+    restore(diff)
+    -- an alternative to restoring cursor locations is to apply the diff in hunks
+    -- I tried it but either the vim.diff result is not fully consistent or I misinterpret it
 
     flash_signs_for_diff(diff, buffer)
 
