@@ -10,7 +10,6 @@ end
 
 function M.format(buffer)
     print(" Getting funky ...")
-    vim.cmd("redraw")
 
     if buffer == nil or buffer == 0 then
         buffer = vim.api.nvim_get_current_buf()
@@ -22,33 +21,32 @@ function M.format(buffer)
         return
     end
 
-    local before = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
-    local exit_code, after, error = tools.run_command(formatter.command, before)
-
-    if exit_code ~= 0 then
-        print(" Formatting was not funky: '" .. vim.inspect(error) .. "'")
+    local formatted = vim.fn.systemlist(formatter.command, buffer, false)
+    if vim.v.shell_error ~= 0 then
+        print(" Formatter was not funky: '" .. vim.inspect(formatted) .. "'")
         return
     end
 
-    local before_str = table.concat(before, "\n")
-    local after_str = table.concat(after, "\n")
-    local diff = vim.diff(before_str, after_str, { result_type = "indices" })
+    local original_str = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, true), "\n")
+    local formatted_str = table.concat(formatted, "\n")
+    local diff = vim.diff(original_str, formatted_str, { result_type = "indices", algorithm = "minimal" })
 
     if #diff == 0 then
+        -- NOTE vim.diff() is not always accurate (see tools.apply_diff() for more details)
+        -- but #diff==0 should mean no changes are needed
         print(" Code was already funky.")
-        return
+    else
+        tools.apply_diff(buffer, diff, formatted)
+        tools.flash_signs_for_diff(diff, buffer)
+        local before_lines, after_lines = tools.get_diff_statistics(diff)
+        print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
     end
 
-    local restore = tools.remember_cursors(buffer)
-    vim.api.nvim_buf_set_lines(buffer, 0, -1, true, after)
-    restore(diff)
-    -- an alternative to restoring cursor locations is to apply the diff in hunks
-    -- I tried it but either the vim.diff result is not fully consistent or I misinterpret it
-
-    tools.flash_signs_for_diff(diff, buffer)
-
-    local before_lines, after_lines = tools.get_diff_statistics(diff)
-    print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
+    -- double check that indeed the buffer is formatted
+    if true then
+        local actual = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
+        assert(vim.deep_equal(actual, formatted))
+    end
 end
 
 return M
