@@ -4,8 +4,6 @@ function M.flash_signs_for_diff(diff, buffer)
     -- TODO indent blank lines plugin uses 10k :)
     local priority = 11000
 
-    vim.pretty_print(diff)
-
     for i = 1, #diff do
         local target_at = diff[i][3]
         local target_length = diff[i][4]
