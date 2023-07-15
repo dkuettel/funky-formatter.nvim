@@ -5,11 +5,11 @@ local M = { config = { formatters = {} } }
 function M.setup(opts)
     M.config = opts or M.config
     M.config.formatters = M.config.formatters or {}
-    vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "﯀" })
+    vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "󰛂" })
 end
 
 function M.format(buffer)
-    print(" Getting funky ...")
+    print("󰁫 Getting funky ...")
 
     if buffer == nil or buffer == 0 then
         buffer = vim.api.nvim_get_current_buf()
