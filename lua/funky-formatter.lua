@@ -14,14 +14,14 @@ function M.format(buffer)
     if buffer == nil or buffer == 0 then
         buffer = vim.api.nvim_get_current_buf()
     end
-    local filetype = vim.api.nvim_buf_get_option(buffer, "filetype")
+    local filetype = vim.bo.filetype
     local formatter = vim.tbl_get(M, "config", "formatters", filetype)
     if not formatter then
         print(" No funky formatter for filetype '" .. filetype .. "'.")
         return
     end
 
-    local formatted = vim.fn.systemlist(formatter.command, buffer, false)
+    local formatted = vim.fn.systemlist(formatter.command, buffer, 0)
     if vim.v.shell_error ~= 0 then
         print(" Formatter was not funky: '" .. vim.inspect(formatted) .. "'")
         return
