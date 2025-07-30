@@ -1,36 +1,78 @@
+local M = {}
+
 local tools = require("funky-formatter-tools")
 
-local M = { config = { formatters = {} } }
+---@type table<string,fun(string):string[]>
+M.config = {}
 
+-- opts maps filetypes to functions that take the path and return a command (string[]) to format that path in-place
+---@param opts table<string,fun(string):string[]>
 function M.setup(opts)
     M.config = opts or M.config
-    M.config.formatters = M.config.formatters or {}
     vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "󰛂" })
 end
 
+---@type integer
+local last_format_hrtime = 0
+
+-- NOTE What is the approach, and why is this so complicated?
+-- Approach:
+-- - save the buffer to its file
+-- - format the file (not the buffer) with the formatter
+-- - read the file (in lua, not into the buffer)
+-- - compute the diff unformatted -> formatted
+-- - apply that diff to the in-memory buffer
+-- - force-save that buffer again to the file
+-- - add temporary highlights at the diff to flash to the user
+-- Why is this so complicated?
+-- - most formatters don't have good support to format from stdin
+--   - the biggest problem is how they discover configuration files, they need a path for that
+--   - this also means we only support formatting for buffers that are backed by a writeable file
+-- - we cannot just read the formatted file into the buffer because
+--   - it messes with the cursor position
+--   - it messes with the lsp, clearing all diagnostics, because it is not an incremental change
+--   - by applying a diff in-memory, the changes look incremental to the lsp again
+-- - we have to force save in the end, otherwise vim thinks the file has been changed on disk and will complain
 function M.format(buffer)
     print("󰁫 Getting funky ...")
 
-    if buffer == nil or buffer == 0 then
-        buffer = vim.api.nvim_get_current_buf()
-    end
+    buffer = buffer or 0
+
     local filetype = vim.bo.filetype
-    local formatter = vim.tbl_get(M, "config", "formatters", filetype)
+    local formatter = vim.tbl_get(M, "config", filetype)
     if not formatter then
         print(" No funky formatter for filetype '" .. filetype .. "'.")
         return
     end
 
-    local formatted, stderr = tools.pipe_buffer(buffer, formatter.command)
-    if stderr ~= nil then
-        -- TODO what is the right way to show an error message? echoerr?
-        print(" Formatter was not funky: " .. stderr)
+    local path = assert(vim.api.nvim_buf_get_name(buffer))
+    vim.api.nvim_buf_call(buffer, function()
+        vim.cmd([[silent update]]) -- saving to disk
+    end)
+    local unformatted = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
+
+    local result = vim.system(formatter(path), { text = true }):wait()
+
+    ---@type integer
+    local now = vim.uv.hrtime() ---@diagnostic disable-line: undefined-field
+    local since_seconds = (now - last_format_hrtime) / 1e9
+    last_format_hrtime = now
+
+    if result.code ~= 0 then
+        if since_seconds > 1 then
+            print(" Formatter was not funky, format again quickly to see details.")
+        else
+            print(" Formatter was not funky.")
+            print(result.stdout .. result.stderr)
+        end
         return
     end
 
-    local original_str = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, true), "\n") .. "\n"
+    local formatted = vim.fn.readfile(path)
+
+    local unformatted_str = table.concat(unformatted, "\n") .. "\n"
     local formatted_str = table.concat(formatted, "\n") .. "\n"
-    local diff = assert(vim.diff(original_str, formatted_str, { result_type = "indices", algorithm = "minimal" }))
+    local diff = assert(vim.diff(unformatted_str, formatted_str, { result_type = "indices", algorithm = "minimal" }))
     assert(type(diff) == "table")
 
     if #diff == 0 then
@@ -50,6 +92,11 @@ function M.format(buffer)
         local actual = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
         assert(vim.deep_equal(actual, formatted))
     end
+
+    -- force save to let vim know we are synced
+    vim.api.nvim_buf_call(buffer, function()
+        vim.cmd([[silent! write!]])
+    end)
 end
 
 return M
