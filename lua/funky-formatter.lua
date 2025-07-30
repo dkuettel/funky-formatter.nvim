@@ -21,19 +21,22 @@ function M.format(buffer)
         return
     end
 
-    local formatted = vim.fn.systemlist(formatter.command, buffer, 0)
-    if vim.v.shell_error ~= 0 then
-        print(" Formatter was not funky: '" .. vim.inspect(formatted) .. "'")
+    local formatted, stderr = tools.pipe_buffer(buffer, formatter.command)
+    if stderr ~= nil then
+        -- TODO what is the right way to show an error message? echoerr?
+        print(" Formatter was not funky: " .. stderr)
         return
     end
 
-    local original_str = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, true), "\n")
-    local formatted_str = table.concat(formatted, "\n")
-    local diff = vim.diff(original_str, formatted_str, { result_type = "indices", algorithm = "minimal" })
+    local original_str = table.concat(vim.api.nvim_buf_get_lines(buffer, 0, -1, true), "\n") .. "\n"
+    local formatted_str = table.concat(formatted, "\n") .. "\n"
+    local diff = assert(vim.diff(original_str, formatted_str, { result_type = "indices", algorithm = "minimal" }))
+    assert(type(diff) == "table")
 
     if #diff == 0 then
         -- NOTE vim.diff() is not always accurate (see tools.apply_diff() for more details)
-        -- but #diff==0 should mean no changes are needed
+        -- it should be true that `#diff==0 -> no changes are needed`
+        -- but not always the reverse
         print(" Code was already funky.")
     else
         tools.apply_diff(buffer, diff, formatted)

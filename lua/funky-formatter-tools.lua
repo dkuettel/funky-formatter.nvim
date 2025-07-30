@@ -1,5 +1,24 @@
 local M = {}
 
+---@param buffer integer
+---@param command string[]
+---@return string[],string?
+function M.pipe_buffer(buffer, command)
+    local input = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
+    -- NOTE can also use cwd= and env=
+    local result = vim.system(command, { text = true, stdin = input }):wait()
+    if result.code == 0 then
+        local stdout = assert(result.stdout)
+        local output = vim.split(stdout, "\n", { plain = true })
+        -- NOTE this is to correctly handle tools that end with a \n or not
+        if output[#output] == "" then
+            output[#output] = nil
+        end
+        return output, nil
+    end
+    return {}, result.stderr
+end
+
 function M.flash_signs_for_diff(diff, buffer)
     -- TODO indent blank lines plugin uses 10k :)
     local priority = 11000
@@ -48,6 +67,9 @@ local function array_slice(array, from, count)
     return slice
 end
 
+---@param buffer integer
+---@param diff integer[][]
+---@param target string[]
 function M.apply_diff(buffer, diff, target)
     -- apply to buffer the diff to turn it into target
 
