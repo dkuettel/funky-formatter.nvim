@@ -36,7 +36,8 @@ local last_format_hrtime = 0
 function M.format(buffer)
     print("󰁫 Getting funky ...")
 
-    buffer = buffer or 0
+    -- NOTE some code below cannot deal with a buffer 0, it has to be an actual id
+    buffer = buffer or vim.api.nvim_get_current_buf()
 
     local filetype = vim.bo.filetype
     local formatter = vim.tbl_get(M, "config", filetype)
