@@ -2,11 +2,66 @@ local M = {}
 
 local tools = require("funky-formatter-tools")
 
----@type table<string,fun(string):string[]>
+---@alias Formatter fun(path:string):vim.SystemCompleted
+
+---@type table<string,Formatter>
 M.config = {}
 
--- opts maps filetypes to functions that take the path and return a command (string[]) to format that path in-place
----@param opts table<string,fun(string):string[]>
+M.path = {}
+
+---@param cmd string[]
+---@param path string
+---@return vim.SystemCompleted
+local function run_with_path(cmd, path)
+    local call = vim.iter(cmd)
+        :map(function(arg)
+            if arg == M.path then
+                return path
+            end
+            return arg
+        end)
+        :totable()
+    return vim.system(call, { text = true }):wait()
+end
+
+---@param cmds string[][]
+---@return Formatter
+function M.from_cmds(cmds)
+    return function(path)
+        local result
+        for _, cmd in ipairs(cmds) do
+            result = run_with_path(cmd, path)
+            if result.code ~= 0 then
+                return result
+            end
+        end
+        return result
+    end
+end
+
+---@param cmd string[]
+---@return Formatter
+function M.from_cmd(cmd)
+    return M.from_cmds({ cmd })
+end
+
+---@param cmd string[]
+---@return Formatter
+function M.from_stdout(cmd)
+    return function(path)
+        local result = run_with_path(cmd, path)
+        if result.code ~= 0 then
+            return result
+        end
+        local file = assert(io.open(path, "w+"))
+        file:write(result.stdout)
+        file:close()
+        return result
+    end
+end
+
+-- opts maps filetypes to functions that take the path and return a Formatter
+---@param opts table<string,fun(path:string):vim.SystemCompleted>
 function M.setup(opts)
     M.config = opts or M.config
     vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "󰛂" })
@@ -40,7 +95,7 @@ function M.format(buffer)
     buffer = buffer or vim.api.nvim_get_current_buf()
 
     local filetype = vim.bo.filetype
-    local formatter = vim.tbl_get(M, "config", filetype)
+    local formatter = M.config[filetype]
     if not formatter then
         print(" No funky formatter for filetype '" .. filetype .. "'.")
         return
@@ -52,7 +107,7 @@ function M.format(buffer)
     end)
     local unformatted = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
 
-    local result = vim.system(formatter(path), { text = true }):wait()
+    local result = formatter(path)
 
     ---@type integer
     local now = vim.uv.hrtime() ---@diagnostic disable-line: undefined-field
