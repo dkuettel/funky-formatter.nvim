@@ -45,7 +45,7 @@ function M.from_cmd(cmd)
     return M.from_cmds({ cmd })
 end
 
----@param cmd string[]
+---@param cmd (string|{})[]
 ---@return Formatter
 function M.from_stdout(cmd)
     return function(path)
