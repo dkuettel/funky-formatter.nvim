@@ -91,7 +91,11 @@ function M.format(buffer)
     -- double check that indeed the buffer is formatted
     if true then
         local actual = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
-        assert(vim.deep_equal(actual, formatted))
+        -- NOTE seems like vim buffers cannot be empty like a file (as in {}), but are always at least {""}
+        if #actual == 1 and actual[1] == "" then
+            actual = {}
+        end
+        assert(vim.deep_equal(actual, formatted), "Buffer is not the same as the file after applying the diff. ")
     end
 
     -- force save to let vim know we are synced
