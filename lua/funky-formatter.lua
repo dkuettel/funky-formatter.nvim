@@ -9,7 +9,7 @@ M.config = {}
 
 M.path = {}
 
----@param cmd string[]
+---@param cmd (string|{})[]
 ---@param path string
 ---@return vim.SystemCompleted
 local function run_with_path(cmd, path)
@@ -24,7 +24,7 @@ local function run_with_path(cmd, path)
     return vim.system(call, { text = true }):wait()
 end
 
----@param cmds string[][]
+---@param cmds (string|{})[][]
 ---@return Formatter
 function M.from_cmds(cmds)
     return function(path)
@@ -39,7 +39,7 @@ function M.from_cmds(cmds)
     end
 end
 
----@param cmd string[]
+---@param cmd (string|{})[]
 ---@return Formatter
 function M.from_cmd(cmd)
     return M.from_cmds({ cmd })
