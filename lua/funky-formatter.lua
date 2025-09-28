@@ -160,8 +160,8 @@ function M.format(buffer)
         -- but not always the reverse
         print(" Code was already funky.")
     else
-        tools.apply_diff(buffer, diff, formatted)
-        tools.flash_signs_for_diff(diff, buffer)
+        M.apply_diff(buffer, diff, formatted)
+        M.flash_signs_for_diff(diff, buffer)
         local before_lines, after_lines = tools.get_diff_statistics(diff)
         print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
     end
