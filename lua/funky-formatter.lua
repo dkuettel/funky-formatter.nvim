@@ -6,9 +6,10 @@ local M = {}
 ---@type table<string,Formatter>
 M.config = {}
 
-M.path = {}
+-- use M.path for arguments in a cmd string[] that are replaced with the file to format
+M.path = 0
 
----@param cmd (string|{})[]
+---@param cmd (string|0)[]
 ---@param path string
 ---@return vim.SystemCompleted
 local function run_with_path(cmd, path)
@@ -23,7 +24,7 @@ local function run_with_path(cmd, path)
     return vim.system(call, { text = true }):wait()
 end
 
----@param cmds (string|{})[][]
+---@param cmds (string|0)[][]
 ---@return Formatter
 function M.from_cmds(cmds)
     return function(path)
@@ -38,13 +39,13 @@ function M.from_cmds(cmds)
     end
 end
 
----@param cmd (string|{})[]
+---@param cmd (string|0)[]
 ---@return Formatter
 function M.from_cmd(cmd)
     return M.from_cmds({ cmd })
 end
 
----@param cmd (string|{})[]
+---@param cmd (string|0)[]
 ---@return Formatter
 function M.from_stdout(cmd)
     return function(path)
