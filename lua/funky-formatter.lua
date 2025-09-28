@@ -162,7 +162,7 @@ function M.format(buffer)
     else
         M.apply_diff(buffer, diff, formatted)
         M.flash_signs_for_diff(diff, buffer)
-        local before_lines, after_lines = tools.get_diff_statistics(diff)
+        local before_lines, after_lines = M.get_diff_statistics(diff)
         print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
     end
 
