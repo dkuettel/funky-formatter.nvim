@@ -1,3 +1,0 @@
-vim's filterning is almost good enough
-%!some-formatter works okay, it even retains cursor and view positions, but
-- on non-zero return code it's messy, it replaces the buffer with the error message
