@@ -3,11 +3,11 @@ local M = {}
 --a formatter takes a path and formats it in place
 ---@alias Formatter fun(path:string):vim.SystemCompleted
 
----@type table<string,Formatter>
-M.config = {}
-
 -- use M.path for arguments in a cmd string[] that are replaced with the file to format
 M.path = 0
+
+---@type table<string,Formatter>
+M.config = {}
 
 ---@param cmd (string|0)[]
 ---@param path string
@@ -59,6 +59,29 @@ function M.from_stdout(cmd)
         return result
     end
 end
+
+---@type table<string,table<string,Formatter>>
+M.formatters = {
+    python = {
+        ruff = M.from_cmds({
+            { "ruff", "check", "--fix-only", "--select", "I", "--silent", M.path },
+            { "ruff", "format", "--quiet", M.path },
+        }),
+    },
+    lua = {
+        stylua = M.from_cmd({ "stylua", "--search-parent-directories", M.path }),
+    },
+    json = {
+        jq = M.from_stdout({ "jq", ".", M.path }),
+    },
+    yaml = { prettier = M.from_cmd({ "prettier", "--parser", "yaml", M.path }) },
+    html = { prettier = M.from_cmd({ "prettier", "--parser", "html", M.path }) },
+    rust = { rustfmt = M.from_cmd({ "rustfmt", M.path }) },
+    markdown = { pandoc = M.from_stdout({ "pandoc", "--from=markdown", "--to=markdown", M.path }) },
+    gitignore = { sort = M.from_stdout({ "env", "-", "LC_ALL=C", "sort", "--unique", M.path }) },
+    nix = { nixpkgsfmt = M.from_cmd({ "nixpkgs-fmt", M.path }) },
+    toml = { taplo = M.from_cmd({ "taplo", "format", "--option", "indent_string=    ", M.path }) },
+}
 
 -- opts maps filetypes to functions that take the path and formatters
 ---@param opts table<string,Formatter>
