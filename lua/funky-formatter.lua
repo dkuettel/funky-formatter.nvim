@@ -289,7 +289,7 @@ return {
     configs = configs,
 
     --- use with from_cmd and co, place it in the array (string|0)[] where you want the target file to be inserted
-    path = path_token,
+    path_token = path_token,
 
     --- create a formatter from a single command
     ---@param cmd (string|0)[]
