@@ -275,7 +275,7 @@ return {
     ---@param opts? table<string,Formatter> maps a filetype to the formatter to be used
     setup = function(opts)
         config = opts or {}
-        vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = "󰛂" })
+        vim.fn.sign_define("FunkyFormatSign", { linehl = "Search", text = " " })
     end,
 
     --- apply the filetype's formatter
