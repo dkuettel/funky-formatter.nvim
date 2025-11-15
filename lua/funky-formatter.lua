@@ -63,7 +63,8 @@ local configs = {
     rust_rustfmt = from_cmds({ { "rustfmt", path_token } }),
     markdown_pandoc = from_stdout({ "pandoc", "--from=markdown", "--to=markdown", path_token }),
     gitignore_sort = from_stdout({ "env", "-", "LC_ALL=C", "sort", "--unique", path_token }),
-    nix_nixpkgsfmt = from_cmds({ { "nixpkgs-fmt", path_token } }),
+    nix_nixpkgsfmt = from_cmds({ { "nixpkgs-fmt", path_token } }), -- NOTE this is deprecated
+    nix_nixfmt = from_cmds({ { "nixfmt", path_token } }),
     toml_taplo = from_cmds({ { "taplo", "format", "--option", "indent_string=    ", path_token } }),
 }
 
