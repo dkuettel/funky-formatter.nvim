@@ -58,6 +58,8 @@ local configs = {
     }),
     lua_stylua = from_cmds({ { "stylua", "--search-parent-directories", path_token } }),
     json_jq = from_stdout({ "jq", ".", path_token }),
+    -- NOTE this complains when there are duplicate keys, by default jq drops duplicate keys silently
+    json_jq_json_format = from_stdout({ "jq-json-format", path_token }),
     yaml_prettier = from_stdout({ "prettier", "--parser", "yaml", path_token }),
     html_prettier = from_stdout({ "prettier", "--parser", "html", path_token }),
     rust_rustfmt = from_cmds({ { "rustfmt", path_token } }),
