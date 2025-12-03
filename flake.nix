@@ -2,7 +2,7 @@
   description = "funky-formatter";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:dkuettel/nixpkgs/stable";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
