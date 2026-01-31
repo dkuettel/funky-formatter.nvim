@@ -202,14 +202,16 @@ local function format(buffer)
     -- NOTE some code below cannot deal with a buffer 0, it has to be an actual id
     buffer = buffer or vim.api.nvim_get_current_buf()
 
-    local filetype = vim.bo.filetype
-    local formatter = config[filetype]
+    local path = assert(vim.api.nvim_buf_get_name(buffer))
+    local name = vim.fn.fnamemodify(path, ":t")
+    local filetype = vim.bo[buffer].filetype
+
+    local formatter = config[name] or config[filetype]
     if not formatter then
         print(" No funky formatter for filetype '" .. filetype .. "'.")
         return
     end
 
-    local path = assert(vim.api.nvim_buf_get_name(buffer))
     vim.api.nvim_buf_call(buffer, function()
         vim.cmd([[silent update]]) -- saving to disk
     end)
