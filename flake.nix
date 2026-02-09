@@ -32,7 +32,7 @@
         '';
       in
       {
-        packages.default = pkgs.symlinkJoin {
+        packages.default = pkgs.buildEnv {
           name = "funky-formatter";
           paths = [ jqJsonFormat ];
         };
