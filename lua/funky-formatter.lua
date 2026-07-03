@@ -5,18 +5,25 @@ local config = {}
 
 local path_token = 0
 
+---@generic T
+---@param data T[]
+---@return Iter
+local function iter(data)
+    -- NOTE vim.iter is not yet working together with emmylua, wrapping here to get better linting (as of 2026-07-03)
+    ---@diagnostic disable-next-line: redundant-parameter
+    return vim.iter(data)
+end
+
 ---@param cmd (string|0)[]
 ---@param path string
 ---@return vim.SystemCompleted
 local function run_with_path(cmd, path)
-    local call = vim.iter(cmd)
-        :map(function(arg)
-            if arg == path_token then
-                return path
-            end
-            return arg
-        end)
-        :totable()
+    local call = iter(cmd):map(function(arg)
+        if arg == path_token then
+            return path
+        end
+        return arg
+    end):totable()
     return vim.system(call, { text = true }):wait()
 end
 
@@ -24,7 +31,9 @@ end
 ---@return Formatter
 local function from_cmds(cmds)
     return function(path)
+        ---@type vim.SystemCompleted
         local result
+        assert(#cmds > 0)
         for _, cmd in ipairs(cmds) do
             result = run_with_path(cmd, path)
             if result.code ~= 0 then
@@ -44,6 +53,7 @@ local function from_stdout(cmd)
             return result
         end
         local file = assert(io.open(path, "w+"))
+        assert(result.stdout)
         file:write(result.stdout)
         file:close()
         return result
@@ -135,8 +145,8 @@ local function apply_diff(buffer, diff, target)
     -- we check that indeed the hunk indices decrease strictly monotonically
     local no_changes_before = nil
     for i = #diff, 1, -1 do
-        local source_at = diff[i][1]
-        local source_length = diff[i][2]
+        local source_at = assert(diff[i][1])
+        local source_length = assert(diff[i][2])
         local target_at = diff[i][3]
         local target_length = diff[i][4]
         if source_length == 0 then
@@ -202,7 +212,7 @@ local function format(buffer)
     -- NOTE some code below cannot deal with a buffer 0, it has to be an actual id
     buffer = buffer or vim.api.nvim_get_current_buf()
 
-    local path = assert(vim.api.nvim_buf_get_name(buffer))
+    local path = vim.api.nvim_buf_get_name(buffer)
     local name = vim.fn.fnamemodify(path, ":t")
     local filetype = vim.bo[buffer].filetype
 
@@ -238,7 +248,8 @@ local function format(buffer)
 
     local unformatted_str = table.concat(unformatted, "\n") .. "\n"
     local formatted_str = table.concat(formatted, "\n") .. "\n"
-    local diff = assert(vim.diff(unformatted_str, formatted_str, { result_type = "indices", algorithm = "minimal" }))
+    local diff =
+        assert(vim.text.diff(unformatted_str, formatted_str, { result_type = "indices", algorithm = "minimal" }))
     assert(type(diff) == "table")
 
     if #diff == 0 then
@@ -255,8 +266,8 @@ local function format(buffer)
         )
     end
 
-    -- double check that indeed the buffer is formatted
-    if true then
+    -- TODO never ran into problems anymore, remove it now?
+    do -- double check that indeed the buffer is formatted
         local actual = vim.api.nvim_buf_get_lines(buffer, 0, -1, true)
         -- NOTE seems like vim buffers cannot be empty like a file (as in {}), but are always at least {""}
         if #actual == 1 and actual[1] == "" then
