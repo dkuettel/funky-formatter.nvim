@@ -197,7 +197,7 @@ local last_format_hrtime = 0
 -- - we have to force save in the end, otherwise vim thinks the file has been changed on disk and will complain
 ---@param buffer? integer current buffer by default
 local function format(buffer)
-    print("󰁫 Getting funky ...")
+    vim.notify("󰁫 Getting funky ...")
 
     -- NOTE some code below cannot deal with a buffer 0, it has to be an actual id
     buffer = buffer or vim.api.nvim_get_current_buf()
@@ -208,7 +208,7 @@ local function format(buffer)
 
     local formatter = config[name] or config[filetype]
     if not formatter then
-        print(" No funky formatter for filetype '" .. filetype .. "'.")
+        vim.notify(" No funky formatter for filetype '" .. filetype .. "'.")
         return
     end
 
@@ -226,10 +226,10 @@ local function format(buffer)
 
     if result.code ~= 0 then
         if since_seconds > 1 then
-            print(" Formatter was not funky, format again quickly to see details.")
+            vim.notify(" Formatter was not funky, format again quickly to see details.")
         else
-            print(" Formatter was not funky.")
-            print(result.stdout .. result.stderr)
+            vim.notify(" Formatter was not funky.")
+            vim.notify(result.stdout .. result.stderr)
         end
         return
     end
@@ -245,12 +245,14 @@ local function format(buffer)
         -- NOTE vim.diff() is not always accurate (see tools.apply_diff() for more details)
         -- it should be true that `#diff==0 -> no changes are needed`
         -- but not always the reverse
-        print(" Code was already funky.")
+        vim.notify(" Code was already funky.")
     else
         apply_diff(buffer, diff, formatted)
         flash_signs_for_diff(diff, buffer)
         local before_lines, after_lines = get_diff_statistics(diff)
-        print(" " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code.")
+        vim.notify(
+            " " .. before_lines .. " lines of crazy code turned into " .. after_lines .. " lines of funky code."
+        )
     end
 
     -- double check that indeed the buffer is formatted
