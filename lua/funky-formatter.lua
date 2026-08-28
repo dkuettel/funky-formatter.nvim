@@ -73,7 +73,15 @@ local configs = {
     yaml_prettier = from_stdout({ "prettier", "--parser", "yaml", path_token }),
     html_prettier = from_stdout({ "prettier", "--parser", "html", path_token }),
     rust_rustfmt = from_cmds({ { "rustfmt", path_token } }),
-    markdown_pandoc = from_stdout({ "pandoc", "--from=markdown", "--to=markdown", path_token }),
+    -- NOTE this does include yaml frontmatter, but it doesnt retain the order of keys
+    -- that's currently a limitation of pandoc: https://github.com/jgm/pandoc/issues/7891
+    markdown_pandoc = from_stdout({
+        "pandoc",
+        "--from=markdown+yaml_metadata_block",
+        "--to=markdown+yaml_metadata_block",
+        "--standalone",
+        path_token,
+    }),
     gitignore_sort = from_stdout({ "env", "-", "LC_ALL=C", "sort", "--unique", path_token }),
     nix_nixpkgsfmt = from_cmds({ { "nixpkgs-fmt", path_token } }), -- NOTE this is deprecated
     nix_nixfmt = from_cmds({ { "nixfmt", path_token } }),
