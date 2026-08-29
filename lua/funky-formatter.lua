@@ -75,11 +75,19 @@ local configs = {
     rust_rustfmt = from_cmds({ { "rustfmt", path_token } }),
     -- NOTE this does include yaml frontmatter, but it doesnt retain the order of keys
     -- that's currently a limitation of pandoc: https://github.com/jgm/pandoc/issues/7891
+    -- markdown_prettier below is probably a better choice
     markdown_pandoc = from_stdout({
         "pandoc",
         "--from=markdown+yaml_metadata_block",
         "--to=markdown+yaml_metadata_block",
         "--standalone",
+        path_token,
+    }),
+    markdown_prettier = from_stdout({
+        "prettier",
+        "--parser=markdown",
+        "--prose-wrap=always",
+        "--print-width=72", -- thats the default of pandoc
         path_token,
     }),
     gitignore_sort = from_stdout({ "env", "-", "LC_ALL=C", "sort", "--unique", path_token }),
