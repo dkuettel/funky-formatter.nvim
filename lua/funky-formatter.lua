@@ -223,7 +223,9 @@ local last_format_hrtime = 0
 -- - we have to force save in the end, otherwise vim thinks the file has been changed on disk and will complain
 ---@param buffer? integer current buffer by default
 local function format(buffer)
-    vim.notify("󰁫 Getting funky ...")
+    -- TODO in the happy case we want only one message, usually success or changes
+    -- but we could have a timeout and warn when the formatter takes very long
+    -- vim.notify("󰁫 Getting funky ...")
 
     -- NOTE some code below cannot deal with a buffer 0, it has to be an actual id
     buffer = buffer or vim.api.nvim_get_current_buf()
